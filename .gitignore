@@ -1,0 +1,27 @@
+# 运行数据与日志（由 launch.js 自动生成）
+data/
+*.log
+*.pid
+
+# IDE 与编辑器配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node / 依赖
+node_modules/
+
+# 逆向分析/临时解包的 ZCode 原生静态文件（非本项目源码，统一放 reference/）
+reference/
+tools/extracted-*.js
+
+# 会话工作区与本地临时验证目录
+/tmp
+.zcode/
+
+# 本机私有配置（覆盖 config.json，如 zcodePath 的本机安装路径）
+config.local.json
+
+# 发行包构建产物
+dist/

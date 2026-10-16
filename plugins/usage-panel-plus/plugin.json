@@ -1,0 +1,10 @@
+{
+    "id": "usage-panel-plus",
+    "name": "会话用量指示",
+    "version": "0.8.3",
+    "description": "在输入框下方展示双统计 pill（灵感来源 dsh，deepseek harness 风格）：仪表 pill（N 轮 · N tok/s）点击弹出会话统计（模型用时/工具用时/TPS），数据库 pill（N tok · 缓存命中 N%）点击弹出 Token 用量（缓存命中/未缓存输入/缓存读取/输出）。数据经本地统计服务 SSE 推送，请求完成即更新；重挂跟随 React 重建事件，无定时轮询。统计按当前激活会话隔离（请求携带会话 ID、推送帧校验归属），会话切换自动重置，杜绝串台。原生「上下文容量」弹层保持原样。",
+    "inject": [
+        "main.js"
+    ],
+    "builtin": true
+}

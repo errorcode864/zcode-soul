@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>上下文容量面板 fixture</title>
+<style>
+    /* 复刻应用内弹层的最小样式，仅用于验证注入脚本的 DOM 锚定与渲染 */
+    body { background: #17181c; color: #e8eaed; font: 13px/1.5 system-ui, sans-serif; padding: 24px; }
+    .\!w-80 { width: 320px; }
+    .rounded-xl { border-radius: 12px; }
+    .bg-popover { background: #1f2126; }
+    .p-4 { padding: 16px; }
+    .shadow-md { box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+    .space-y-3 > * + * { margin-top: 12px; }
+    .space-y-2 > * + * { margin-top: 8px; }
+    .space-y-1\.5 > * + * { margin-top: 6px; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-3 { gap: 12px; }
+    .gap-2 { gap: 8px; }
+    .grid { display: grid; }
+    .gap-1\.5 { gap: 6px; }
+    .min-w-0 { min-width: 0; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ml-auto { margin-left: auto; }
+    .shrink-0 { flex-shrink: 0; }
+    .text-right { text-align: right; }
+    .font-mono { font-family: ui-monospace, Consolas, monospace; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .text-ui-base { font-size: 14px; }
+    .text-ui-sm { font-size: 12px; }
+    .font-medium { font-weight: 500; }
+    .text-foreground { color: #e8eaed; }
+    .text-foreground-subtle { color: #9aa0a8; }
+    .border-t { border-top: 1px solid #33363c; }
+    .border-border { border-color: #33363c; }
+    .pt-3 { padding-top: 12px; }
+    .mb-3 { margin-bottom: 12px; }
+    .h-2 { height: 8px; border-radius: 4px; background: #2a2d33; overflow: hidden; }
+    .size-2 { width: 8px; height: 8px; }
+    .rounded-sm { border-radius: 2px; }
+    .min-w-10 { min-width: 40px; }
+    /* 额度区补充类 */
+    .space-y-2 > * + * { margin-top: 8px; }
+    .gap-1 { gap: 4px; }
+    .gap-2 { gap: 8px; }
+    .flex-wrap { flex-wrap: wrap; }
+    .rounded-lg { border-radius: 8px; }
+    .bg-surface { background: #17181c; }
+    .p-3 { padding: 12px; }
+    .flex-1 { flex: 1 1 0%; }
+    .items-baseline { align-items: baseline; }
+    .leading-none { line-height: 1; }
+    .font-semibold { font-weight: 600; }
+    .text-ui-lg { font-size: 16px; }
+    .mt-2 { margin-top: 8px; }
+    .h-1\.5 { height: 6px; border-radius: 3px; background: #2a2d33; overflow: hidden; }
+    /* 模拟原生左下角账号图标行（ghost 图标按钮），验证拼图按钮锚定与间距 */
+    .bottom-row { display: flex; align-items: center; gap: 8px; margin-top: 40px; padding: 12px; }
+    .ghost-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; border: none; border-radius: 8px;
+        background: transparent; color: #9aa0a8; cursor: pointer;
+    }
+    .ghost-btn:hover { background: #262a31; color: #e8eaed; }
+    .ghost-btn svg { width: 18px; height: 18px; }
+    .avatar { width: 28px; height: 28px; border-radius: 50%; background: #4d8ef7; color: #fff;
+        display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+</style>
+</head>
+<body>
+    <!-- 与 app.asar 内面板实现同构的最小 DOM 契约 -->
+    <div class="!w-80 rounded-xl bg-popover p-4 shadow-md">
+        <div class="space-y-3">
+            <div class="space-y-2">
+                <div class="flex min-w-0 mb-3 items-center gap-3">
+                    <span class="shrink-0 text-ui-base font-medium text-foreground">上下文容量</span>
+                    <span class="ml-auto shrink-0 text-right font-mono text-ui-sm text-foreground-subtle">14.1万/30万（47.1%）</span>
+                </div>
+                <div class="h-2"><div style="width:47%;height:100%;background:#4d8ef7;border-radius:4px;"></div></div>
+            </div>
+            <div aria-label="上下文来源" class="space-y-1.5">
+                <div class="grid gap-1.5">
+                    <div class="flex min-w-0 items-center gap-2 text-ui-sm">
+                        <span aria-hidden="true" class="size-2 shrink-0 rounded-sm" style="background:#4d8ef7"></span>
+                        <span class="min-w-0 truncate text-foreground-subtle">消息</span>
+                        <span class="ml-auto min-w-10 shrink-0 text-right font-mono text-ui-sm tabular-nums text-foreground">46.7%</span>
+                    </div>
+                    <div class="flex min-w-0 items-center gap-2 text-ui-sm">
+                        <span aria-hidden="true" class="size-2 shrink-0 rounded-sm" style="background:#6b9df8"></span>
+                        <span class="min-w-0 truncate text-foreground-subtle">MCP 工具</span>
+                        <span class="ml-auto min-w-10 shrink-0 text-right font-mono text-ui-sm tabular-nums text-foreground">30.1%</span>
+                    </div>
+                    <div class="flex min-w-0 items-center gap-2 text-ui-sm">
+                        <span aria-hidden="true" class="size-2 shrink-0 rounded-sm" style="background:#8fb4f9"></span>
+                        <span class="min-w-0 truncate text-foreground-subtle">系统工具</span>
+                        <span class="ml-auto min-w-10 shrink-0 text-right font-mono text-ui-sm tabular-nums text-foreground">20.2%</span>
+                    </div>
+                    <div class="flex min-w-0 items-center gap-2 text-ui-sm">
+                        <span aria-hidden="true" class="size-2 shrink-0 rounded-sm" style="background:#b3caf9"></span>
+                        <span class="min-w-0 truncate text-foreground-subtle">系统提示词</span>
+                        <span class="ml-auto min-w-10 shrink-0 text-right font-mono text-ui-sm tabular-nums text-foreground">3.0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between gap-3 text-ui-sm border-t border-border pt-3">
+                <span class="text-foreground-subtle">平均缓存命中率</span>
+                <span class="font-mono text-ui-sm text-foreground">98.2%</span>
+            </div>
+            <div class="space-y-2">
+                <div class="flex min-w-0 flex-wrap items-center gap-1">
+                    <h4 class="text-ui-base font-medium text-foreground">剩余额度</h4>
+                </div>
+                <div class="flex w-full gap-2">
+                    <div class="min-w-0 flex-1 rounded-lg bg-surface p-3">
+                        <div class="flex min-h-6 min-w-0 items-center gap-1">
+                            <span class="min-w-0 truncate text-ui-base font-medium text-foreground">5 小时</span>
+                        </div>
+                        <div class="mt-2 flex min-w-0 items-baseline gap-1.5">
+                            <span class="text-ui-lg font-semibold leading-none text-foreground">41%</span>
+                            <span class="min-w-0 truncate text-ui-sm text-foreground-subtle">· 19:08</span>
+                        </div>
+                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                            <div class="h-full rounded-full" style="width:41%;background:#4d8ef7"></div>
+                        </div>
+                    </div>
+                    <div class="min-w-0 flex-1 rounded-lg bg-surface p-3">
+                        <div class="flex min-h-6 min-w-0 items-center gap-1">
+                            <span class="min-w-0 truncate text-ui-base font-medium text-foreground">每周</span>
+                        </div>
+                        <div class="mt-2 flex min-w-0 items-baseline gap-1.5">
+                            <span class="text-ui-lg font-semibold leading-none text-foreground">38%</span>
+                            <span class="min-w-0 truncate text-ui-sm text-foreground-subtle">· 10月19日</span>
+                        </div>
+                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                            <div class="h-full rounded-full" style="width:38%;background:#58c98b"></div>
+                        </div>
+                    </div>
+                    <div class="min-w-0 flex-1 rounded-lg bg-surface p-3">
+                        <div class="flex min-h-6 min-w-0 items-center gap-1">
+                            <span class="min-w-0 truncate text-ui-base font-medium text-foreground">ZCode MCP</span>
+                        </div>
+                        <div class="mt-2 flex min-w-0 items-baseline gap-1.5">
+                            <span class="text-ui-lg font-semibold leading-none text-foreground">100%</span>
+                            <span class="min-w-0 truncate text-ui-sm text-foreground-subtle">· 10月15日</span>
+                        </div>
+                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                            <div class="h-full rounded-full" style="width:100%;background:#e58c3a"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 模拟原生左下角：账号 + 移动端远程控制 + 设置 -->
+    <div class="bottom-row">
+        <span class="avatar">Q</span>
+        <button class="ghost-btn" aria-label="移动端远程控制" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+        </button>
+        <button class="ghost-btn" aria-label="设置" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+    </div>
+    <!-- 模拟输入框工具行与容器（usage-panel-plus 的用量行锚点） -->
+    <div style="border:1px solid #33363c;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:12px;max-width:640px;">
+        <div style="min-height:40px;color:#9aa0a8">（模拟输入框）</div>
+        <div class="group/toolbar" style="display:flex;align-items:center;gap:12px;color:#9aa0a8;font-size:12px;">
+            <span>添加上下文</span><span>完全访问</span><span style="margin-left:auto">GLM-5.3-Flash</span>
+        </div>
+    </div>
+    <script>
+        // 模拟 ZCode 会话容器：激活会话的根节点带 data-session-id，
+        // 统计插件据此隔离数据；用 ?session=<id> 切换待模拟的会话（缺省取最新会话）
+        (function () {
+            var host = document.querySelector("[data-session-id-host]") || document.body;
+            var wrap = document.createElement("div");
+            wrap.setAttribute("data-session-id", "");
+            wrap.id = "fixture-session";
+            host.appendChild(wrap);
+            var qs = new URLSearchParams(location.search).get("session");
+            if (qs) wrap.setAttribute("data-session-id", qs);
+            else fetch("/stats").then(function (r) { return r.json(); }).then(function (s) {
+                if (s && s.sessionId) wrap.setAttribute("data-session-id", s.sessionId);
+            }).catch(function () {});
+        })();
+    </script>
+    <script src="/load/all.js"></script>
+</body>
+</html>

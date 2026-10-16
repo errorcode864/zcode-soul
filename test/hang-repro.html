@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>插件挂死复现页</title>
+<style>
+    body { margin: 0; background: #161616; color: #dedede; font: 13px/1.5 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #stage { max-width: 720px; margin: 60px auto; }
+    #log { font: 12px/1.6 Consolas, monospace; color: #9a9a9a; white-space: pre-wrap; }
+    .composer-wrap { border: 1px solid #333; border-radius: 16px; padding: 12px; margin-bottom: 16px; }
+    textarea { width: 100%; box-sizing: border-box; background: #202020; color: #dedede; border: none; border-radius: 8px; padding: 8px; }
+    .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    button { background: #2a2d33; color: #c6cad1; border: 1px solid #3a3e46; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="stage">
+    <!-- 模拟 React 会话容器：携带 data-session-id -->
+    <div id="session" data-session-id="sess_repro_0001">
+        <!-- 模拟 ZCode 新会话欢迎页：插画背景 + 输入框卡片 -->
+        <div id="composer-mount"></div>
+    </div>
+    <div id="log">等待注入...</div>
+</div>
+<script>
+    // 模拟 React 重渲染：周期性整体重建输入框卡片（与 React 一致地丢弃外来节点）。
+    // 这正是 ZCode 页面在启动/动画/流式更新时的行为，也是插件插入节点被反复清除的来源。
+    var rebuildCount = 0;
+    var foreignRemoved = 0;
+
+    function buildComposer() {
+        var mount = document.getElementById("composer-mount");
+        var card = document.createElement("div");
+        card.className = "rounded-2xl border";
+        var ta = document.createElement("textarea");
+        ta.placeholder = "向 ZCode 提问，Tab 切换到普通输入";
+        var row = document.createElement("div");
+        row.className = "row";
+        var toolbar = document.createElement("div");
+        toolbar.setAttribute("class", "flex items-center gap-1 group/toolbar");
+        var send = document.createElement("button");
+        send.setAttribute("aria-label", "发送");
+        send.textContent = "发送";
+        toolbar.appendChild(send);
+        row.appendChild(toolbar);
+        card.appendChild(ta);
+        card.appendChild(row);
+        mount.appendChild(card);
+        rebuildCount++;
+    }
+
+    // 统计被 React 模拟重建丢弃的外来节点（验证插入-清除-再插入风暴）
+    function countForeign() {
+        var foreign = document.querySelectorAll("#composer-mount *:not(.rounded-2xl):not(textarea):not(.row):not(button):not([class*='group/toolbar'])");
+        return foreign.length;
+    }
+
+    // 静态模式（?mode=static）不重建，用于对照实验
+    if (location.search.indexOf("static") === -1) {
+        setInterval(function () {
+            var mount = document.getElementById("composer-mount");
+            if (mount.children.length > 1 || countForeign() > 0) foreignRemoved += countForeign();
+            mount.replaceChildren();
+            buildComposer();
+            var log = document.getElementById("log");
+            if (log) log.textContent = "重建次数=" + rebuildCount + " 丢弃外来节点≈" + foreignRemoved +
+                " 心跳=" + Date.now() % 100000;
+        }, 300);
+    }
+
+    buildComposer();
+
+    // 心跳探针：主线程若被挂死，此计数停止增长
+    window.__heartbeat = 0;
+    setInterval(function () { window.__heartbeat++; }, 200);
+</script>
+</body>
+</html>

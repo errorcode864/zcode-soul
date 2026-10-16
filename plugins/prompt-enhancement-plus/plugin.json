@@ -1,0 +1,12 @@
+{
+    "id": "prompt-enhancement-plus",
+    "name": "提示词增强",
+    "version": "1.2.0",
+    "description": "灵感来源 workbuddy：在输入框发送按钮旁增加「增强提示词」按钮（快捷键 Alt+E），基于专家级提示词工程规范改写草稿，并支持一键撤销恢复。悬停显示与原生一致的快捷键提示。",
+    "inject": [
+        "main.js"
+    ],
+    "builtin": true,
+    "server": "server.js",
+    "manager": "manager.js"
+}

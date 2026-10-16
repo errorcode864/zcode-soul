@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zcode-soul 扩展</title>
+<style>
+    :root {
+        color-scheme: dark;
+        /* 深色调色板：变量名与宿主一致，便于父页 postMessage 实测值按名内联覆盖。
+           iframe 是跨域文档，读不到宿主变量，未覆盖时恒用此处内置值 */
+        --color-background: #161616;
+        --color-foreground: #dedede;
+        --color-foreground-subtle: #9a9a9a;
+        --color-card: #202020;
+        --color-border: rgba(255, 255, 255, 0.08);
+        --color-surface: rgba(255, 255, 255, 0.04);
+        --color-hover: rgba(255, 255, 255, 0.08);
+        --color-primary: #ffffff;
+        --color-primary-foreground: #000000;
+        --color-success: #46bf72;
+        --color-warning: #ff8a30;
+        /* 组件级派生色：宿主无对应变量，深浅色各配一套 */
+        --builtin-fg: #79c0ff;
+        --builtin-border: rgba(56, 139, 253, 0.25);
+        --builtin-bg: rgba(56, 139, 253, 0.1);
+        --switch-track: #33363d;
+        --switch-thumb: #ced2d9;
+        --focus-border: rgba(255, 255, 255, 0.3);
+        --hover-border: rgba(255, 255, 255, 0.15);
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        --font-mono: "SF Mono", Monaco, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    /* 浅色调色板：嵌入模式由父页 ?theme=light 预置 class，浏览器直开时跟随系统 */
+    :root.theme-light {
+        color-scheme: light;
+        --color-background: #f8f8f8;
+        --color-foreground: #0d0d0d;
+        --color-foreground-subtle: #737373;
+        --color-card: #ffffff;
+        --color-border: rgba(0, 0, 0, 0.1);
+        --color-surface: rgba(0, 0, 0, 0.03);
+        --color-hover: rgba(0, 0, 0, 0.06);
+        --color-primary: #0a0a0a;
+        --color-primary-foreground: #ffffff;
+        --color-success: #16a34a;
+        --color-warning: #ca8a04;
+        --builtin-fg: #0969da;
+        --builtin-border: rgba(9, 105, 218, 0.3);
+        --builtin-bg: rgba(9, 105, 218, 0.08);
+        --switch-track: rgba(0, 0, 0, 0.15);
+        --switch-thumb: #ffffff;
+        --focus-border: rgba(0, 0, 0, 0.35);
+        --hover-border: rgba(0, 0, 0, 0.18);
+    }
+    :root {
+        --bg: var(--color-background);
+        --fg: var(--color-foreground);
+        --fg-subtle: var(--color-foreground-subtle);
+        --card: var(--color-card);
+        --card-border: var(--color-border);
+        --surface: var(--color-surface);
+        --surface-hover: var(--color-hover);
+        --accent: var(--color-primary);
+        --accent-fg: var(--color-primary-foreground);
+        --success: var(--color-success);
+        --warning: var(--color-warning);
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 13px/1.5 var(--font-sans);
+        user-select: none;
+        -webkit-font-smoothing: antialiased;
+    }
+    .page-wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 36px 32px 80px;
+    }
+    
+    /* 顶部标题行 */
+    .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .header-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--fg);
+    }
+    .header-icon svg {
+        width: 22px;
+        height: 22px;
+    }
+    .header-title {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0;
+        color: var(--fg);
+    }
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: var(--radius-md);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border: 1px solid transparent;
+        outline: none;
+    }
+    .btn-primary {
+        background: var(--accent);
+        color: var(--accent-fg);
+    }
+    .btn-primary:hover {
+        opacity: 0.9;
+    }
+    .btn-ghost {
+        background: transparent;
+        color: var(--fg-subtle);
+        border: 1px solid var(--card-border);
+    }
+    .btn-ghost:hover {
+        background: var(--surface-hover);
+        color: var(--fg);
+    }
+    .btn-icon {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+    }
+    .btn-icon svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    /* 状态提示微标 */
+    .status-bar {
+        font-size: 12px;
+        color: var(--fg-subtle);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+    }
+    .status-dot.bad {
+        background: var(--warning);
+    }
+
+    /* 过滤与搜索栏 */
+    .filter-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--card-border);
+        padding-bottom: 14px;
+    }
+    .tabs-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .tab-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--fg-subtle);
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .tab-pill:hover {
+        color: var(--fg);
+        background: var(--surface);
+    }
+    .tab-pill.active {
+        color: var(--fg);
+        background: var(--surface-hover);
+        border-color: var(--card-border);
+    }
+    .tab-pill .badge {
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: var(--surface-hover);
+        color: var(--fg-subtle);
+    }
+    .tab-pill.active .badge {
+        background: var(--color-hover);
+        color: var(--fg);
+    }
+    .search-box {
+        position: relative;
+        width: 240px;
+    }
+    .search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        color: var(--fg-subtle);
+        pointer-events: none;
+    }
+    .search-input {
+        width: 100%;
+        height: 32px;
+        padding: 0 10px 0 32px;
+        border-radius: var(--radius-md);
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        color: var(--fg);
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .search-input:focus {
+        border-color: var(--focus-border);
+    }
+    .search-input::placeholder {
+        color: var(--fg-subtle);
+    }
+
+    /* 列表分组标题 */
+    .section-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--fg-subtle);
+        margin: 20px 0 10px 4px;
+    }
+
+    /* 扩展卡片（PI-Desktop 现代横条风格） */
+    .ext-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        margin-bottom: 8px;
+        transition: border-color 0.15s, background 0.15s;
+        overflow: hidden;
+    }
+    .ext-card:hover {
+        border-color: var(--hover-border);
+    }
+    .ext-card-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 16px;
+    }
+    .ext-icon {
+        flex: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--surface-hover);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--fg);
+        font-size: 14px;
+    }
+    .ext-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .ext-name-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ext-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--fg);
+        letter-spacing: -0.005em;
+    }
+    .tag-badge {
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        color: var(--fg-subtle);
+    }
+    .tag-badge.builtin {
+        color: var(--builtin-fg);
+        border-color: var(--builtin-border);
+        background: var(--builtin-bg);
+    }
+    .ext-meta {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--fg-subtle);
+    }
+    .ext-detail-btn {
+        background: none;
+        border: none;
+        padding: 2px 4px;
+        color: var(--fg-subtle);
+        font-size: 12px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        border-radius: var(--radius-sm);
+    }
+    .ext-detail-btn:hover {
+        color: var(--fg);
+        background: var(--surface);
+    }
+    .ext-detail-btn svg {
+        width: 12px;
+        height: 12px;
+        transition: transform 0.2s;
+    }
+    .ext-card.expanded .ext-detail-btn svg {
+        transform: rotate(180deg);
+    }
+
+    /* 卡片右侧操作栏 */
+    .ext-actions {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .scope-tag {
+        font-size: 12px;
+        color: var(--fg-subtle);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        cursor: default;
+    }
+    .scope-tag svg {
+        width: 11px;
+        height: 11px;
+    }
+
+    /* 紧凑开关 */
+    .switch {
+        position: relative;
+        flex: none;
+        width: 36px;
+        height: 20px;
+    }
+    .switch input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        cursor: pointer;
+        z-index: 1;
+    }
+    .switch .track {
+        position: absolute;
+        inset: 0;
+        border-radius: 10px;
+        background: var(--switch-track);
+        transition: background 0.15s ease;
+        pointer-events: none;
+    }
+    .switch .thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--switch-thumb);
+        transition: transform 0.15s ease, background 0.15s ease;
+        pointer-events: none;
+    }
+    .switch input:checked + .track {
+        background: var(--success);
+    }
+    .switch input:checked + .track + .thumb {
+        transform: translateX(16px);
+        background: #ffffff;
+    }
+    .switch input:disabled {
+        cursor: wait;
+        opacity: 0.5;
+    }
+
+    /* 卡片折叠详情区 */
+    .ext-body {
+        display: none;
+        padding: 0 16px 14px 62px;
+        border-top: 1px dashed var(--card-border);
+        margin-top: 4px;
+        padding-top: 10px;
+    }
+    .ext-card.expanded .ext-body {
+        display: block;
+    }
+    .ext-desc {
+        color: var(--fg-subtle);
+        font-size: 13px;
+        line-height: 1.6;
+        margin-bottom: 8px;
+    }
+    .ext-files {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--fg-subtle);
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .ext-file-tag {
+        background: var(--surface);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--card-border);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 0;
+        color: var(--fg-subtle);
+        font-size: 13px;
+    }
+
+    /* 配置弹窗 */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    .modal-backdrop.open {
+        display: flex;
+    }
+    .modal-dialog {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-lg);
+        width: 560px;
+        max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        padding: 24px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+    .modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--fg);
+        margin: 0;
+    }
+    .modal-close {
+        background: transparent;
+        border: none;
+        color: var(--fg-subtle);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-close:hover {
+        color: var(--fg);
+        background: var(--surface-hover);
+    }
+    .form-group {
+        margin-bottom: 14px;
+    }
+    .form-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+    .form-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--fg);
+        margin-bottom: 6px;
+        display: block;
+    }
+    .form-label-row .form-label {
+        margin-bottom: 0;
+    }
+    .form-input, .form-textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        color: var(--fg);
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+    }
+    .form-input:focus, .form-textarea:focus {
+        border-color: var(--focus-border);
+    }
+    .form-textarea {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        min-height: 140px;
+        resize: vertical;
+        line-height: 1.45;
+    }
+    .form-hint {
+        font-size: 11px;
+        color: var(--fg-subtle);
+        margin-top: 4px;
+    }
+    select.form-input {
+        height: 35px;
+        padding: 0 8px;
+    }
+    select.form-input option {
+        background: var(--card);
+        color: var(--fg);
+    }
+    .seg {
+        display: flex;
+        gap: 4px;
+        background: var(--surface);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius-md);
+        padding: 3px;
+        width: fit-content;
+    }
+    .seg-btn {
+        border: none;
+        background: transparent;
+        color: var(--fg-subtle);
+        font-size: 12px;
+        font-family: inherit;
+        height: 26px;
+        padding: 0 12px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        outline: none;
+    }
+    .seg-btn:hover {
+        color: var(--fg);
+    }
+    .seg-btn.active {
+        background: var(--accent);
+        color: var(--accent-fg);
+    }
+    .seg-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .modal-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .cfg-btn-sm {
+        background: transparent;
+        border: 1px solid var(--card-border);
+        color: var(--fg-subtle);
+        border-radius: var(--radius-sm);
+        padding: 2px 8px;
+        font-size: 11px;
+        cursor: pointer;
+    }
+    .cfg-btn-sm:hover {
+        background: var(--surface-hover);
+        color: var(--fg);
+    }
+    /* 内嵌模式在弹窗中使用紧凑排版，隐藏外层重复标题。
+       body 保持铺自身调色板背景：iframe 铺满弹窗内容区，视觉不变，
+       且不依赖宿主垫底（避免透明画布透出深色底层） */
+    html.embed .page-wrap {
+        padding: 18px 24px 40px;
+        max-width: 100%;
+    }
+    html.embed .header-row {
+        display: none;
+    }
+    html.embed .status-bar {
+        margin-bottom: 16px;
+    }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+    <!-- 顶部标题行 -->
+    <div class="header-row">
+        <div class="header-left">
+            <div class="header-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 22V7a1 1 0 0 0-1-1H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 0 0-1-1H2"></path>
+                    <rect x="14" y="2" width="8" height="8" rx="1"></rect>
+                </svg>
+            </div>
+            <h1 class="header-title">扩展</h1>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-ghost btn-icon" id="btn-refresh" title="刷新状态">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                    <path d="M16 21h5v-5"></path>
+                </svg>
+            </button>
+            <button class="btn btn-ghost btn-icon" id="btn-browser" title="在浏览器中独立打开">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 状态行 -->
+    <div class="status-bar" id="status-bar">
+        <span class="status-dot"></span>
+        <span id="status-text">内置服务运行中 · 127.0.0.1 · 开关即时生效</span>
+    </div>
+
+    <!-- 过滤与搜索行 -->
+    <div class="filter-bar">
+        <div class="tabs-group">
+            <button class="tab-pill active" data-tab="all" id="tab-all">
+                全部 <span class="badge" id="badge-all">0</span>
+            </button>
+            <button class="tab-pill" data-tab="enabled" id="tab-enabled">
+                已启用 <span class="badge" id="badge-enabled">0</span>
+            </button>
+            <button class="tab-pill" data-tab="disabled" id="tab-disabled">
+                未启用 <span class="badge" id="badge-disabled">0</span>
+            </button>
+        </div>
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input" id="search-input" placeholder="搜索扩展...">
+        </div>
+    </div>
+
+    <!-- 扩展卡片分组 -->
+    <div id="installed-section">
+        <div class="section-label" id="enabled-count-label">已启用 0</div>
+        <main id="plugin-list">
+            <div class="empty-state">加载中...</div>
+        </main>
+    </div>
+</div>
+
+<script>
+    var API = location.origin;
+    var allPlugins = [];
+    var currentTab = "all";
+    var searchKeyword = "";
+
+    // 检查是否作为 iframe 嵌入或带有 ?embed=1
+    var isEmbed = location.search.indexOf("embed=1") !== -1 || window.self !== window.top;
+    if (isEmbed) {
+        document.documentElement.classList.add("embed");
+    }
+    // 主题跟随：嵌入模式由父页（manager-panel-plus）经 ?theme= 预置首帧配色，
+    // 加载后再 postMessage 下发实测主题与宿主变量值精调，切换即时跟随；
+    // 浏览器直开时无父页，按系统 prefers-color-scheme 选择深浅调色板
+    (function () {
+        var rootEl = document.documentElement;
+        function applyTheme(theme) {
+            rootEl.classList.toggle("theme-light", theme === "light");
+            rootEl.classList.toggle("theme-dark", theme === "dark");
+        }
+        function applyVars(vars) {
+            if (!vars) return;
+            for (var name in vars) {
+                if (Object.prototype.hasOwnProperty.call(vars, name) && vars[name]) {
+                    rootEl.style.setProperty(name, vars[name]);
+                }
+            }
+        }
+        var match = /[?&]theme=(dark|light)(?:&|$)/.exec(location.search);
+        if (match) {
+            applyTheme(match[1]);
+        } else if (!isEmbed && window.matchMedia) {
+            var mq = window.matchMedia("(prefers-color-scheme: light)");
+            var syncSystemTheme = function () { applyTheme(mq.matches ? "light" : "dark"); };
+            if (mq.addEventListener) mq.addEventListener("change", syncSystemTheme);
+            syncSystemTheme();
+        }
+        window.addEventListener("message", function (e) {
+            var d = e.data;
+            if (d && d.type === "zcode-soul:theme") {
+                applyTheme(d.theme);
+                applyVars(d.vars);
+            }
+        });
+    })();
+
+    // 管理页扩展点：插件可在目录内提供 manager.js（plugin.json 的 "manager" 声明），
+    // 由管理页按 /api/plugins 返回的 hasManager 以同源 script 动态加载，向此注册卡片钩子：
+    //   register(<插件id>, {
+    //     actions: function (plugin) => [{ title, icon, onClick(plugin) }],  // 卡片操作区按钮
+    //     detail:  function (container, plugin) => void                      // 详情区附加内容
+    //   })
+    // 扩展 UI 与逻辑全部内聚在插件目录，新增插件无需改动本文件
+    window.__zcodeSoulManager = {
+        hooks: {},
+        register: function (id, hooks) {
+            this.hooks[id] = hooks || {};
+            if (typeof this.commit === "function") this.commit();
+        },
+        // 注册后回调：重置数据签名强制重渲染，让新钩子即时上卡片
+        commit: function () {
+            lastPluginsSig = null;
+            renderPlugins();
+        }
+    };
+
+    // 读取插件注册的钩子；未注册（扩展脚本未加载或无扩展）返回 null
+    function managerHook(pluginId, name) {
+        var ext = window.__zcodeSoulManager.hooks[pluginId];
+        return ext && typeof ext[name] === "function" ? ext[name] : null;
+    }
+
+    // 按插件清单动态加载管理页扩展脚本（每个插件每页只加载一次）
+    var loadedManagerExts = {};
+    function loadManagerExtensions(plugins) {
+        plugins.forEach(function (p) {
+            if (!p.hasManager || loadedManagerExts[p.id]) return;
+            loadedManagerExts[p.id] = true;
+            var s = document.createElement("script");
+            s.src = "/plugin/" + encodeURIComponent(p.id) + "/" + (p.manager || "manager.js");
+            document.head.appendChild(s);
+        });
+    }
+
+    function renderPlugins() {
+        var list = document.getElementById("plugin-list");
+
+        // 分类计数
+        var totalCount = allPlugins.length;
+        var enabledCount = allPlugins.filter(function (p) { return p.enabled; }).length;
+        var disabledCount = totalCount - enabledCount;
+
+        var badgeAll = document.getElementById("badge-all");
+        if (badgeAll) badgeAll.textContent = totalCount;
+        var badgeEnabled = document.getElementById("badge-enabled");
+        if (badgeEnabled) badgeEnabled.textContent = enabledCount;
+        var badgeDisabled = document.getElementById("badge-disabled");
+        if (badgeDisabled) badgeDisabled.textContent = disabledCount;
+
+        var countLabel = document.getElementById("enabled-count-label");
+        if (countLabel) {
+            if (currentTab === "enabled") {
+                countLabel.textContent = "已启用 " + enabledCount;
+            } else if (currentTab === "disabled") {
+                countLabel.textContent = "未启用 " + disabledCount;
+            } else {
+                countLabel.textContent = "全部扩展 " + totalCount;
+            }
+        }
+
+        document.getElementById("installed-section").style.display = "block";
+
+        var filtered = allPlugins.filter(function (p) {
+            if (currentTab === "enabled" && !p.enabled) return false;
+            if (currentTab === "disabled" && p.enabled) return false;
+            if (!searchKeyword) return true;
+            var kw = searchKeyword.toLowerCase();
+            return (p.name && p.name.toLowerCase().indexOf(kw) !== -1) ||
+                   (p.id && p.id.toLowerCase().indexOf(kw) !== -1) ||
+                   (p.description && p.description.toLowerCase().indexOf(kw) !== -1);
+        });
+
+        if (!filtered.length) {
+            var emptyTip = searchKeyword ? "未匹配到相关扩展" :
+                (currentTab === "enabled" ? "暂无已启用的扩展" :
+                (currentTab === "disabled" ? "暂无未启用的扩展" : "plugins/ 目录下未发现插件"));
+            list.innerHTML = '<div class="empty-state">' + emptyTip + '</div>';
+            return;
+        }
+
+        // 记录当前展开的卡片，重建 DOM 后按 data-id 恢复，重渲染不再把详情区收起
+        var expandedIds = [];
+        document.querySelectorAll("#plugin-list .ext-card.expanded").forEach(function (el) {
+            expandedIds.push(el.getAttribute("data-id"));
+        });
+
+        list.innerHTML = "";
+        filtered.forEach(function (p) {
+            var card = document.createElement("div");
+            card.className = "ext-card";
+            card.setAttribute("data-id", p.id);
+
+            var main = document.createElement("div");
+            main.className = "ext-card-main";
+
+            // 图标
+            var icon = document.createElement("div");
+            icon.className = "ext-icon";
+            icon.textContent = "⬡";
+
+            // 信息区
+            var info = document.createElement("div");
+            info.className = "ext-info";
+
+            var nameRow = document.createElement("div");
+            nameRow.className = "ext-name-row";
+            var name = document.createElement("span");
+            name.className = "ext-name";
+            name.textContent = p.name;
+            nameRow.appendChild(name);
+
+            if (p.builtin) {
+                var builtinBadge = document.createElement("span");
+                builtinBadge.className = "tag-badge builtin";
+                builtinBadge.textContent = "内置";
+                nameRow.appendChild(builtinBadge);
+            }
+
+            var meta = document.createElement("div");
+            meta.className = "ext-meta";
+            meta.textContent = p.id + " · v" + p.version;
+
+            var detailBtn = document.createElement("button");
+            detailBtn.type = "button";
+            detailBtn.className = "ext-detail-btn";
+            detailBtn.innerHTML = '<span>详情</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+            detailBtn.addEventListener("click", function () {
+                card.classList.toggle("expanded");
+            });
+
+            info.appendChild(nameRow);
+            info.appendChild(meta);
+            info.appendChild(detailBtn);
+
+            // 右侧操作
+            var actions = document.createElement("div");
+            actions.className = "ext-actions";
+
+            var scope = document.createElement("div");
+            scope.className = "scope-tag";
+            scope.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>全局';
+
+            var sw = document.createElement("label");
+            sw.className = "switch";
+            var input = document.createElement("input");
+            input.type = "checkbox";
+            input.checked = p.enabled;
+            input.addEventListener("change", function () { togglePlugin(p.id, input); });
+            var track = document.createElement("span");
+            track.className = "track";
+            var thumb = document.createElement("span");
+            thumb.className = "thumb";
+            sw.appendChild(input);
+            sw.appendChild(track);
+            sw.appendChild(thumb);
+
+            actions.appendChild(scope);
+            // 插件注册的操作按钮（manager.js 扩展），如提示词增强的「配置」入口
+            var actionHook = managerHook(p.id, "actions");
+            if (actionHook) {
+                var hookItems;
+                try { hookItems = actionHook(p) || []; } catch (err) { hookItems = []; }
+                hookItems.forEach(function (item) {
+                    var hookBtn = document.createElement("button");
+                    hookBtn.type = "button";
+                    hookBtn.className = "btn btn-ghost btn-icon";
+                    if (item.title) hookBtn.title = item.title;
+                    hookBtn.style.width = "26px";
+                    hookBtn.style.height = "26px";
+                    hookBtn.style.padding = "0";
+                    hookBtn.innerHTML = item.icon || "";
+                    hookBtn.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        if (typeof item.onClick === "function") item.onClick(p);
+                    });
+                    actions.appendChild(hookBtn);
+                });
+            }
+            actions.appendChild(sw);
+
+            main.appendChild(icon);
+            main.appendChild(info);
+            main.appendChild(actions);
+
+            // 折叠区
+            var body = document.createElement("div");
+            body.className = "ext-body";
+            var desc = document.createElement("div");
+            desc.className = "ext-desc";
+            desc.textContent = p.description || "无详细描述";
+            body.appendChild(desc);
+
+            if (p.inject && p.inject.length) {
+                var files = document.createElement("div");
+                files.className = "ext-files";
+                p.inject.forEach(function (f) {
+                    var fTag = document.createElement("span");
+                    fTag.className = "ext-file-tag";
+                    fTag.textContent = f;
+                    files.appendChild(fTag);
+                });
+                body.appendChild(files);
+            }
+
+            // 插件注册的详情区附加内容（manager.js 扩展）
+            var detailHook = managerHook(p.id, "detail");
+            if (detailHook) {
+                try { detailHook(body, p); } catch (err) { /* 扩展异常不影响列表渲染 */ }
+            }
+
+            card.appendChild(main);
+            card.appendChild(body);
+            if (expandedIds.indexOf(p.id) !== -1) card.classList.add("expanded");
+            list.appendChild(card);
+        });
+    }
+
+    function togglePlugin(id, input) {
+        var enabled = input.checked;
+        input.disabled = true;
+        fetch(API + "/api/plugins/" + encodeURIComponent(id) + "/toggle", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: enabled })
+        }).then(function () {
+            loadPlugins();
+        }).catch(function () {
+            input.checked = !enabled;
+            input.disabled = false;
+        });
+    }
+
+    // 插件数据签名：轮询结果无变化时跳过重渲染，避免 2s 轮询打断展开状态与开关操作
+    function pluginsSig(plugins) {
+        return plugins.map(function (p) { return p.id + "|" + p.enabled + "|" + p.version; }).join(";");
+    }
+    var lastPluginsSig = null;
+
+    function loadPlugins() {
+        fetch(API + "/api/plugins")
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                setStatus(true);
+                var plugins = data.plugins || [];
+                var sig = pluginsSig(plugins);
+                if (sig === lastPluginsSig) return;
+                lastPluginsSig = sig;
+                allPlugins = plugins;
+                renderPlugins();
+                loadManagerExtensions(plugins);
+            })
+            .catch(function () {
+                setStatus(false);
+            });
+    }
+
+    function setStatus(up) {
+        var dot = document.querySelector(".status-dot");
+        var text = document.getElementById("status-text");
+        if (up) {
+            dot.className = "status-dot";
+            text.textContent = "内置服务运行中 · 127.0.0.1:" + location.port + " · 开关即时生效";
+        } else {
+            dot.className = "status-dot bad";
+            text.textContent = "内置服务未连接";
+        }
+    }
+
+    // 事件绑定
+    document.getElementById("search-input").addEventListener("input", function (e) {
+        searchKeyword = e.target.value.trim();
+        renderPlugins();
+    });
+
+    document.querySelectorAll(".tab-pill").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            document.querySelectorAll(".tab-pill").forEach(function (b) { b.classList.remove("active"); });
+            btn.classList.add("active");
+            currentTab = btn.getAttribute("data-tab");
+            renderPlugins();
+        });
+    });
+
+    var btnRefresh = document.getElementById("btn-refresh");
+    if (btnRefresh) {
+        btnRefresh.addEventListener("click", function () {
+            loadPlugins();
+        });
+    }
+
+    var btnBrowser = document.getElementById("btn-browser");
+    if (btnBrowser) {
+        btnBrowser.addEventListener("click", function () {
+            // 嵌入 Electron 弹窗内 window.open 会被主进程拦截，统一交由本地服务用默认浏览器打开
+            fetch(API + "/api/open-browser").catch(function () {});
+        });
+    }
+
+    // iframe 内部按 Esc 键通知宿主弹窗关闭
+    window.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            try {
+                window.parent.postMessage({ type: "zcode-soul:close" }, "*");
+            } catch (err) {}
+        }
+    });
+
+    loadPlugins();
+    setInterval(function () {
+        // 页面不可见时暂停轮询，回到前台由下一轮刷新
+        if (document.visibilityState === "hidden") return;
+        loadPlugins();
+    }, 2000);
+</script>
+</body>
+</html>

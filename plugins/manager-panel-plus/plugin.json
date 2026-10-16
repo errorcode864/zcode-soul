@@ -1,0 +1,8 @@
+{
+    "id": "manager-panel-plus",
+    "name": "应用内扩展管理",
+    "version": "0.3.5",
+    "description": "在 ZCode 左下角注入插件图标，点击弹出扩展管理面板（插件开关），无需再开浏览器页面。悬停图标显示与原生一致的名称提示。",
+    "inject": ["main.js"],
+    "builtin": true
+}

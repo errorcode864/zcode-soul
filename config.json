@@ -1,0 +1,7 @@
+{
+    "zcodePath": "",
+    "debugPort": 9333,
+    "statsPort": 9340,
+    "pollIntervalMs": 5000,
+    "openManager": false
+}
